@@ -8,3 +8,14 @@ src = "contracts"
 out = "artifacts"
 libs = ["node_modules"]
 fs_permissions = [{ access = "read", path = "./" }]
+
+
+[fuzz]
+runs = 1000
+seed = '0x1'
+
+[invariant]
+runs = 640
+depth = 32
+fail_on_revert = false
+call_override = false

